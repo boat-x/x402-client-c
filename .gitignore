@@ -1,0 +1,12 @@
+/build
+/lib
+.svn
+*.udb
+.scannerwork/
+.vscode/
+boatconfig.h
+*.o
+*.obj
+*.a
+*.key
+
