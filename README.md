@@ -69,7 +69,7 @@ clean:
 
 6. Configure credentials
 
-Copy `credentials.key.example` to `credentials.key` and replace `g_payer_key` value with actual payer's private key. The private key should be a "0x"-prefixed HEX string representing the plain text 256-bit private key (e.g., "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef").
+Copy `x402-demo/credentials.key.example` to `x402-demo/credentials.key` and replace `g_payer_key` value with actual payer's private key. The private key should be a "0x"-prefixed HEX string representing the plain text 256-bit private key (e.g., "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef").
 
 
 7. Build
