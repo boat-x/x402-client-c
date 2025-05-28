@@ -118,6 +118,11 @@ __BOATSTATIC size_t HttpCurlWriteMemoryCallback(void *data_ptr, size_t size,
     return data_size;
 }
 
+__BOATSTATIC size_t HttpCurlHeader_callback(void *ptr, size_t size, size_t nmemb, void *userdata) {
+  	size_t total_size = size * nmemb;
+  	fwrite(ptr , size , nmemb , (FILE *)userdata);
+  	return total_size;
+}
 
 
 BOAT_RESULT HttpGetWithoutXPayment(const BCHAR *url_str,
@@ -210,6 +215,8 @@ BOAT_RESULT HttpGetWithoutXPayment(const BCHAR *url_str,
     g_http_response.string_len = 0;
     curl_easy_setopt(curl_ctx_ptr, CURLOPT_WRITEDATA, &g_http_response);
     curl_easy_setopt(curl_ctx_ptr, CURLOPT_WRITEFUNCTION, HttpCurlWriteMemoryCallback);
+    curl_easy_setopt(curl_ctx_ptr, CURLOPT_HEADERDATA, stdout);
+    curl_easy_setopt(curl_ctx_ptr, CURLOPT_HEADERFUNCTION, HttpCurlHeader_callback);
 
 
     // Perform the HTTP GET request
@@ -378,6 +385,8 @@ BOAT_RESULT HttpGetWithXPayment(const BCHAR *url_str,
     curl_easy_setopt(curl_ctx_ptr, CURLOPT_WRITEDATA, &g_http_response);
     curl_easy_setopt(curl_ctx_ptr, CURLOPT_WRITEFUNCTION, HttpCurlWriteMemoryCallback);
 
+    curl_easy_setopt(curl_ctx_ptr, CURLOPT_HEADERDATA, stdout);
+    curl_easy_setopt(curl_ctx_ptr, CURLOPT_HEADERFUNCTION, HttpCurlHeader_callback);
 
     // Perform the HTTP GET request
     curl_result = curl_easy_perform(curl_ctx_ptr);
