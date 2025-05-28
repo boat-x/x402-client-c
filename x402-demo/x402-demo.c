@@ -324,7 +324,8 @@ BOAT_RESULT x402Process(BoatEthWallet *ethereum_wallet_ptr)
 
     //// Calculate EIP-3009 typedHash to sign
 
-    BUINT64 validAfter_u64 = time(NULL);    // Seconds
+    BUINT64 validAfter_u64 = time(NULL) - 60;   // Minus 60 seconds to ensure it's "in the past" when
+                                                // the EIP-3009 message arrives at the contract
     BUINT64 validBefore_u64 = validAfter_u64 + payment_request_info_ptr->timeout_s32 + 60;    // Seconds
 
     BoatRandom(nonce_u256, sizeof(nonce_u256), NULL);
