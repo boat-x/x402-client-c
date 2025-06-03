@@ -27,11 +27,29 @@ SOFTWARE.
 #include "curl/curl.h"
 
 
-// Memory allocated for receiving HTTP response
+//! Memory allocated for receiving HTTP Response Body
 StringWithLen g_http_response;
 
+//! HTTP Response Body buffer Step (auto expansion at the pace of the defined step)
 #define HTTP_RECV_BUF_SIZE_STEP 1024
 
+/*!*****************************************************************************
+@brief Initialize resources for HTTP client
+
+@details
+  This function allocates and initializes necessary memory for HTTP client.
+  The client functions are not reentrant. Only one instance can be set up
+  in one process.
+
+  This function doesn't take any parameter.
+  
+
+@return
+  This function returns BOAT_SUCCESS if the initialization is successful.\n
+  Otherwize it returns an error code.
+
+@see HttpClientDeinit()
+*******************************************************************************/
 BOAT_RESULT HttpClientInit(void)
 {
     BOAT_RESULT result;
@@ -54,6 +72,22 @@ BOAT_RESULT HttpClientInit(void)
     return result;
 }
 
+
+/*!*****************************************************************************
+@brief De-initialize resources for HTTP client
+
+@details
+  This function frees memory of the HTTP client that was initialized by
+  HttpClientInit().
+
+  This function doesn't take any parameter.
+  
+
+@return
+  This function has no return value.
+
+@see HttpClientInit()
+*******************************************************************************/
 void HttpClientDeinit(void)
 {
     if (g_http_response.string_ptr != NULL)
@@ -69,6 +103,31 @@ void HttpClientDeinit(void)
 }
 
 
+/*!*****************************************************************************
+@brief Callback function for HTTP Response Body
+
+@details
+  This is the callback function to register in curl as the handler for HTTP
+  Response Body.
+  
+  This function saves HTTP Response Body to g_http_response for later use. It
+  will check the buffer size and expand it in case the received Response Body
+  is larger than the buffer.
+  
+  DO NOT free the referenced buffer in g_http_response unless it's at the
+  de-initialization stage (with HttpClientDeinit() ).
+  
+  Note that this function only handles the HTTP Response Body. The HTTP
+  Response Header is handled by HttpCurlHeader_callback() instead.
+
+  See libcurl mannual for the parameter desctiption.
+  
+
+@return
+  See libcurl mannual for the return value desctiption.
+
+@see HttpCurlHeader_callback()
+*******************************************************************************/
 __BOATSTATIC size_t HttpCurlWriteMemoryCallback(void *data_ptr, size_t size,
                                                 size_t nmemb, void *userdata)
 {
@@ -118,6 +177,27 @@ __BOATSTATIC size_t HttpCurlWriteMemoryCallback(void *data_ptr, size_t size,
     return data_size;
 }
 
+
+/*!*****************************************************************************
+@brief Callback function for HTTP Response Header
+
+@details
+  This is the callback function to register in curl as the handler for HTTP
+  Response Header.
+  
+  This function simply print HTTP Response Header.
+  
+  Note that this function only handles the HTTP Response Header. The HTTP
+  Response Body is handled by HttpCurlWriteMemoryCallback() instead.
+
+  See libcurl mannual for the parameter desctiption.
+  
+
+@return
+  See libcurl mannual for the return value desctiption.
+
+@see HttpCurlWriteMemoryCallback()
+*******************************************************************************/
 __BOATSTATIC size_t HttpCurlHeader_callback(void *ptr, size_t size, size_t nmemb, void *userdata) {
   	size_t total_size = size * nmemb;
   	fwrite(ptr , size , nmemb , (FILE *)userdata);
@@ -125,6 +205,35 @@ __BOATSTATIC size_t HttpCurlHeader_callback(void *ptr, size_t size, size_t nmemb
 }
 
 
+/*!*****************************************************************************
+@brief Construct and send a HTTP Get without X-Payment Header
+
+@details
+  This function constructs and sends a normal HTTP Get Request without X-Payment
+  Header.
+  
+  An x402-compatible procedure starts from a normal HTTP Request as usual. The
+  x402 server will reply with Status Code 402 and detailed information of
+  Payment Request in HTTP Response Body.
+
+  Visit this site for details about x402 protocol: https://www.x402.org/
+
+@param[in] {BCHAR*} url_str
+    The URL to visit.
+
+@param[out] {BCHAR**} response_str_ptr
+    The address of a BCHAR pointer to receive the address pointing to the HTTP\n
+    Response Body. The output address points to g_http_response.string_ptr.\n
+    The caller SHALL NOT free this address. 
+
+@param[out] {BUINT32*} response_len_ptr
+    The address of a BUINT32 integer to receive the length of <response_str_ptr>.
+
+@return
+  This function returns BOAT_SUCCESS if a HTTP Response is successfully\n
+  received.
+
+*******************************************************************************/
 BOAT_RESULT HttpGetWithoutXPayment(const BCHAR *url_str,
                                    BOAT_OUT BCHAR **response_str_ptr,
                                    BOAT_OUT BUINT32 *response_len_ptr)
@@ -268,6 +377,39 @@ BOAT_RESULT HttpGetWithoutXPayment(const BCHAR *url_str,
 
 
 
+/*!*****************************************************************************
+@brief Construct and send a HTTP Get with X-Payment Header
+
+@details
+  This function constructs and sends a HTTP Get Request with X-Payment Header.
+  
+  An x402-compatible procedure starts from a normal HTTP Request as usual. The
+  x402 server will reply with Status Code 402 and detailed information of
+  Payment Request in HTTP Response Body. Following this, the client sends a new
+  HTTP Request with X-PAYMENT Header, which contains Payment Load.
+
+  Visit this site for details about x402 protocol: https://www.x402.org/
+
+@param[in] {BCHAR*} url_str
+    The URL to visit.
+
+@param[in] {BCHAR*} payment_payload_str
+    A JSON string of the Payment Payload as defined by x402. This JSON string\n
+    will be Base64 encoded before sending out.
+
+@param[out] {BCHAR**} response_str_ptr
+    The address of a BCHAR pointer to receive the address pointing to the HTTP\n
+    Response Body. The output address points to g_http_response.string_ptr.\n
+    The caller SHALL NOT free this address. 
+
+@param[out] {BUINT32*} response_len_ptr
+    The address of a BUINT32 integer to receive the length of <response_str_ptr>.
+
+@return
+  This function returns BOAT_SUCCESS if a HTTP Response is successfully\n
+  received.
+
+*******************************************************************************/
 BOAT_RESULT HttpGetWithXPayment(const BCHAR *url_str,
                                 const BCHAR *payment_payload_str,
                                 BOAT_OUT BCHAR **response_str_ptr,

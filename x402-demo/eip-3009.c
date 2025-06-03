@@ -27,6 +27,59 @@ SOFTWARE.
 #include "boat_keystore_intf.h"
 
 
+/*!*****************************************************************************
+@brief Calculate the hashStruct of an EIP-3009 typedData of transferWithAuthorization
+
+@details
+  This function calculates hashStruct(message), where message is an EIP-3009
+  typedData of transferWithAuthorization() method.
+  
+  EIP-712 defines hashStruct() as:
+  
+  hashStruct(s) = keccak256(typeHash || encodeData(s)) where typeHash = keccak256(encodeType(typeOf(s)))
+  
+  In the EIP-3009 case, typeHash is defined as:
+  EIP-3009 typeHash = keccak256("TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)")
+  
+  and
+  
+  encodeData(s) is calculated from the function parameters.
+  
+  This function then calculates and returns hashStruct(s), which is used to
+  contruct an EIP-712 encoded message.
+  
+  Visit https://eips.ethereum.org/EIPS/eip-712 for details of EIP-712.
+  Visit https://eips.ethereum.org/EIPS/eip-3009 for details of EIP-3009.
+
+@param[out] {BUINT8[32]} typed_data_hash_out
+    The 32-byte array to receive the calculated 256-bit hashStruct.
+
+@param[in] {BCHAR*} domain_separator_str
+    Domain Separator in HEX string.
+
+@param[in] {BCHAR*} from_str
+    Payer address in HEX string.
+
+@param[in] {BCHAR*} to_str
+    Payee address in HEX string.
+
+@param[in] {BUINT64} value_u64
+    value to transfer. The unit is the same as the transfer() method of the ERC-20 token.
+
+@param[in] {BUINT64} validAfter_u64
+    validAfter (UNIX time).
+
+@param[in] {BUINT64} validBefore_u64
+    validBefore_u64 (UNIX time).
+
+@param[in] {BUINT8[32]} nonce_u256
+    An array of a 256-bit nonce in Payment Payload.
+
+@return
+  This function returns BOAT_SUCCESS if hashStruct(EIP-3009 typeData) is successfully calculated.\n
+  Otherwise it returns an error code.
+
+*******************************************************************************/
 BOAT_RESULT makeHashEip3009TransferAuth(BOAT_OUT BUINT8 typed_data_hash_out[32], const BCHAR *domain_separator_str, const BCHAR *from_str, const BCHAR *to_str, BUINT64 value_u64, BUINT64 validAfter_u64, BUINT64 validBefore_u64, BUINT8 nonce_u256[32])
 {
     BOAT_RESULT result = BOAT_SUCCESS;
@@ -246,7 +299,51 @@ BOAT_RESULT makeHashEip3009TransferAuth(BOAT_OUT BUINT8 typed_data_hash_out[32],
 }
 
 
-BOAT_RESULT makeEip3009TypedHash(BOAT_OUT BUINT8 typed_data_hash_out[32], const BCHAR *payer_address_str, const tPaymentRequestInfo * payment_request_info_ptr, BUINT64 validAfter_u64, BUINT64 validBefore_u64, BUINT8 nonce_u256[32])
+/*!*****************************************************************************
+@brief Calculate the hash of EIP-712 typedData for an EIP-3009 message
+
+@details
+  This function calculates the hash of EIP-712 typedData of an EIP-3009 message of
+  transferWithAuthorization() method.
+  
+  The hash of the EIP-712 typedData is defined as:
+  
+  hash = keccak256("\x19\x01" || domainSeparator || hashStruct(message))
+  
+  Where [message] is an EIP-3009 message for transferWithAuthorization()
+  method in this demo.
+  
+  Visit https://eips.ethereum.org/EIPS/eip-712 for details of EIP-712.
+  Visit https://eips.ethereum.org/EIPS/eip-3009 for details of EIP-3009.
+
+@param[out] {BUINT8[32]} typed_data_hash_out
+    The 32-byte array to receive the calculated 256-bit hash of the EIP-712 typedData.
+
+@param[in] {BCHAR*} payer_address_str
+    Payer address in HEX string.
+
+@param[in] {tPaymentRequestInfo*} payment_request_info_ptr
+    Pointer to a struct tPaymentRequestInfo containing parsed Payment Request\n
+    to construct the parameters for transferWithAuthorization().
+
+@param[in] {BCHAR*} payer_address_str
+    Payer address in HEX string.
+
+@param[in] {BUINT64} validAfter_u64
+    validAfter (UNIX time) in Payment Payload.
+
+@param[in] {BUINT64} validBefore_u64
+    validBefore_u64 (UNIX time) in Payment Payload.
+
+@param[in] {BUINT8[32]} nonce_u256
+    An array of a 256-bit nonce in Payment Payload.
+
+@return
+  This function returns BOAT_SUCCESS if the EIP-712 hash is successfully calculated.\n
+  Otherwise it returns an error code.
+
+*******************************************************************************/
+BOAT_RESULT makeEip3009Hash(BOAT_OUT BUINT8 typed_data_hash_out[32], const BCHAR *payer_address_str, const tPaymentRequestInfo * payment_request_info_ptr, BUINT64 validAfter_u64, BUINT64 validBefore_u64, BUINT8 nonce_u256[32])
 {
     BCHAR *domain_separator_str;
     BOAT_RESULT result = BOAT_ERROR;

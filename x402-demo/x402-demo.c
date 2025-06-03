@@ -26,16 +26,45 @@ SOFTWARE.
  Before first-time compilation, copy credentials.key.example to credentials.key
  and replace g_payer_key value with actual payer's private key
 ******************************************************************************/
+//! Private Key
 #include "credentials.key"
 
+//! Resource URL for the x402 demo
 const BCHAR *g_x402_server_url = "http://127.0.0.1:4021/weather";
 
+//! Chain ID
 const BUINT32 g_chain_id = 8453;  //  Not useful for x402 scenario, but keep for standard BoAT initialization procedure
 
+//! Wallet Object
 BoatEthWallet *g_ethereum_wallet_ptr = NULL;
-BUINT8 g_keypairIndex = 0;
-BUINT8 g_networkIndex = 0;
 
+//! Keypair Index
+BUINT8 g_keypairIndex = 0;
+
+//! Network Index
+BUINT8 g_networkIndex = 0;  //  Not useful for x402 scenario, but keep for standard BoAT initialization procedure
+
+/*!*****************************************************************************
+@brief Create an ECDSA keypair for the demo
+
+@details
+  This function creates an ECDSA secp256k1 keypair for the payer in the x402 demo.
+  The keypair is later used to create the Ethereum wallet object.
+  
+  Note: In the x402 demo, BoAT SDK is used only to sign the Payment Payload and
+  doesn't actually send transaction to the network. 
+
+@param[in] {BCHAR*} nativePrivateKey
+    The 256-bit native private key in HEX string with leading "0x".
+
+@param[in] {BCHAR*} keypairName
+    The name of the keypair. The exact name is not care.
+
+@return
+  This function returns BOAT_SUCCESS if the keypair is successfully created.\n
+  Otherwise it returns an error code.
+
+*******************************************************************************/
 BOAT_RESULT ethereum_createKeypair(const BCHAR *nativePrivateKey, BCHAR * keypairName)
 {
     BOAT_RESULT result = BOAT_SUCCESS;
@@ -66,6 +95,25 @@ BOAT_RESULT ethereum_createKeypair(const BCHAR *nativePrivateKey, BCHAR * keypai
     return BOAT_SUCCESS;
 }
 
+
+/*!*****************************************************************************
+@brief Create an Ethereum-compatible network for the demo
+
+@details
+  This function creates an Ethereum-compatible network for the x402 demo.
+  The network is later used to create the Ethereum wallet object.
+  
+  This function doesn't take any parameter.
+  
+  Note: In the x402 demo, BoAT SDK is used only to sign the Payment Payload and
+  doesn't actually send transaction to the network. This configuration is
+  required to meet the BoAT SDK usage, but its value is not care in the demo. 
+
+@return
+  This function returns BOAT_SUCCESS if the network is successfully created.\n
+  Otherwise it returns an error code.
+
+*******************************************************************************/
 BOAT_RESULT createEthereumNetwork()
 {
     BOAT_RESULT result = BOAT_SUCCESS;
@@ -89,6 +137,30 @@ BOAT_RESULT createEthereumNetwork()
 
 
 
+/*!*****************************************************************************
+@brief Get a string from a cJSON object item
+
+@details
+  This is a utility function to get a string value with a given key name from
+  a cJSON object item.
+  
+
+@param[out] {BCHAR**} item_str_ptr
+    An address of BCHAR* type to receive the address of the parsed string with\n
+    the key name given by [item_name_str].\n
+    The caller should not free the memory pointed by the received address.
+
+@param[in] {cJSON*} cjson_object_ptr
+    Pointer to an cJSON object containing the number to get.
+
+@param[in] {BCHAR*} item_name_str
+    A string of the key name (of the JSON key-value pare) to get nummeric value from.
+
+@return
+  This function returns BOAT_SUCCESS if the string value is successfully got.\n
+  It returns NULL if [item_name_str] is not found or is not a string value.
+
+*******************************************************************************/
 BOAT_RESULT getStringFromcJson(BOAT_OUT BCHAR **item_str_ptr, const cJSON * cjson_object_ptr, const BCHAR * item_name_str)
 {
     cJSON *cjson_item_ptr = NULL;
@@ -124,6 +196,41 @@ BOAT_RESULT getStringFromcJson(BOAT_OUT BCHAR **item_str_ptr, const cJSON * cjso
 }
 
 
+/*!*****************************************************************************
+@brief Get a number from a cJSON object item
+
+@details
+  This is a utility function to get a nummeric value with a given key name from
+  a cJSON object item.
+  
+  In JSON, all numeric values are regarded as float number. cJSON parses the
+  value as double and rounds it to the nearest integer. Thus, this function
+  returns both a 32-bit signed integer and a double value. [item_int_ptr] and
+  [item_double_ptr] cannot be both NULL.
+
+@param[out] {BSINT32*} item_int_ptr
+    An address of BSINT32 type to receive the parsed number with the key name\n
+    given by [item_name_str].\n
+    It can be NULL if a integer value is not required. In this case,\n
+    [item_double_ptr] cannot be NULL.
+
+@param[out] {double*} item_double_ptr
+    An address of double type to receive the parsed number with the key name\n
+    given by [item_name_str].\n
+    It can be NULL if a double value is not required. In this case,\n
+    [item_int_ptr] cannot be NULL.
+
+@param[in] {cJSON*} cjson_object_ptr
+    Pointer to an cJSON object containing the number to get.
+
+@param[in] {BCHAR*} item_name_str
+    A string of the key name (of the JSON key-value pare) to get nummeric value from.
+
+@return
+  This function returns BOAT_SUCCESS if the numeric value is successfully got.\n
+  It returns NULL if [item_name_str] is not found or is not a numeric value.
+
+*******************************************************************************/
 BOAT_RESULT getNumberFromcJson(BOAT_OUT BSINT32 *item_int_ptr, BOAT_OUT double *item_double_ptr, const cJSON * cjson_object_ptr, const BCHAR * item_name_str)
 {
     cJSON *cjson_item_ptr = NULL;
@@ -157,6 +264,47 @@ BOAT_RESULT getNumberFromcJson(BOAT_OUT BSINT32 *item_int_ptr, BOAT_OUT double *
 }
 
 
+/*!*****************************************************************************
+@brief Parse x402 Payment Request
+
+@details
+  This function parses the Payment Request returned by a x402 server.
+
+  Payment Request is a JSON string like:
+  
+    {
+        "x402Version": 1,
+        "error": "X-PAYMENT header is required",
+        "accepts": [
+            {
+                "scheme": "exact",
+                "network": "base-sepolia",
+                "maxAmountRequired": "1000",
+                "resource": "http://localhost:4021/weather",
+                "description": "",
+                "mimeType": "",
+                "payTo": "0x023399dE1cd0bEc8d5603A3bDf350226ffe064EE",
+                "maxTimeoutSeconds": 60,
+                "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                "extra": {
+                    "name": "USDC",
+                    "version": "2"
+                }
+            }
+        ]
+    }
+  
+  Visit this site for details about x402 protocol: https://www.x402.org/
+
+@param[in] {BCHAR*} response_str
+    The a string of Payment Request.
+
+@return
+  This function returns a pointer to struct tPaymentRequestInfo containing the\n
+  parsed fields in the Payment Request.\n
+  It returns NULL if error occurs.
+
+*******************************************************************************/
 tPaymentRequestInfo * x402ParsePaymentRequest(BCHAR *response_str)
 {
     cJSON *cjson_accepts_ptr = NULL;
@@ -279,6 +427,30 @@ tPaymentRequestInfo * x402ParsePaymentRequest(BCHAR *response_str)
 
 
 
+/*!*****************************************************************************
+@brief Conduct x402 demo procedure
+
+@details
+  This function conducts a x402 interaction procedure:
+  
+  1. The client sends a normal HTTP Get Request without X-Payment Header. The
+     x402 server should reply with Status Code 402 and the exact Payment Request.
+  2. The client parses the Payment Request returned by the x402 server.
+  3. The client conducts the Payment Payload and signs it.
+  4. The client sends a HTTP Get Request with X-Payment Header. The x402 server
+     should reply with the requested resources and an X-PAYMENT-RESPONSE in
+     header.
+  
+  Visit this site for details about x402 protocol: https://www.x402.org/
+
+@param[in] {BoatEthWallet*} ethereum_wallet_ptr
+    The wallet object of the device. It's used to sign the Payment Payload.
+
+@return
+  This function returns BOAT_SUCCESS if the demo is successful.\n
+  Otherwize an error code is returned.
+
+*******************************************************************************/
 BOAT_RESULT x402Process(BoatEthWallet *ethereum_wallet_ptr)
 {
     BCHAR *response_str = NULL;
@@ -322,7 +494,7 @@ BOAT_RESULT x402Process(BoatEthWallet *ethereum_wallet_ptr)
         boat_throw(BOAT_ERROR, cleanup);
     }
 
-    //// Calculate EIP-3009 typedHash to sign
+    //// Calculate EIP-3009 Hash to sign
 
     BUINT64 validAfter_u64 = time(NULL) - 60;   // Minus 60 seconds to ensure it's "in the past" when
                                                 // the EIP-3009 message arrives at the contract
@@ -341,11 +513,11 @@ BOAT_RESULT x402Process(BoatEthWallet *ethereum_wallet_ptr)
 
     BoatLog(BOAT_LOG_NORMAL, "Payer Address: %s", payer_address_hex_str);
 
-    result = makeEip3009TypedHash(typed_data_hash, payer_address_hex_str, payment_request_info_ptr, validAfter_u64, validBefore_u64, nonce_u256);
+    result = makeEip3009Hash(typed_data_hash, payer_address_hex_str, payment_request_info_ptr, validAfter_u64, validBefore_u64, nonce_u256);
 
     if(result != BOAT_SUCCESS)
     {
-        BoatLog(BOAT_LOG_CRITICAL, "Calculating typedHash failed.");
+        BoatLog(BOAT_LOG_CRITICAL, "Calculating hash failed.");
         boat_throw(BOAT_ERROR, cleanup);
     }
 
@@ -475,6 +647,21 @@ BOAT_RESULT x402Process(BoatEthWallet *ethereum_wallet_ptr)
 }
 
 
+/*!*****************************************************************************
+@brief Entry for the x402 demo
+
+@details
+  This function prepares necessary resources and starts the x402 process demo.
+  It should be called from main().
+
+  This function doesn't take any parameter.
+  
+
+@return
+  This function returns BOAT_SUCCESS if the demo is successful.\n
+  Otherwize it returns an error code.
+
+*******************************************************************************/
 BOAT_RESULT x402DemoEntry(void)
 {
     BOAT_RESULT result;

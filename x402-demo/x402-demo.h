@@ -37,22 +37,23 @@ SOFTWARE.
 #include "boatlog.h"
 #include "boatkeystore.h"
 
+//! Parsed Payment Request which is returned from x402 server
 typedef struct tPaymentRequestInfo_struct
 {
-    cJSON *cjson_http_response_ptr;
-    BCHAR *network_str;
-    BCHAR *amount_str;
-    BCHAR *resource_str;
-    BCHAR *payTo_str;
-    BSINT32 timeout_s32;
-    BCHAR *asset_str;
+    cJSON *cjson_http_response_ptr; //!< cJSON object pointer to the Payment Request
+    BCHAR *network_str;             //!< "network": The blockchain network to pay on
+    BCHAR *amount_str;              //!< "maxAmountRequired": The amount to pay. The unit is the as the transfer method for the "asset"
+    BCHAR *resource_str;            //!< "resource": The resource URL to visit. This is probably different from the URL for the HTTP Request without X-Payment Header
+    BCHAR *payTo_str;               //!< "payTo": The address to pay to
+    BSINT32 timeout_s32;            //!< "maxTimeoutSeconds": Maximum timeout in second
+    BCHAR *asset_str;               //!< "asset": The contract address of the ERC20 token to pay
 }tPaymentRequestInfo;
 
  // Private key of Payer (machine):
  extern const BCHAR *g_payer_key;
  
 
-BOAT_RESULT makeEip3009TypedHash(BOAT_OUT BUINT8 typed_data_hash_out[32], const BCHAR *payer_address_str, const tPaymentRequestInfo * payment_request_info_ptr, BUINT64 validAfter_u64, BUINT64 validBefore_u64, BUINT8 nonce_u256[32]);
+BOAT_RESULT makeEip3009Hash(BOAT_OUT BUINT8 typed_data_hash_out[32], const BCHAR *payer_address_str, const tPaymentRequestInfo * payment_request_info_ptr, BUINT64 validAfter_u64, BUINT64 validBefore_u64, BUINT8 nonce_u256[32]);
 BOAT_RESULT HttpClientInit(void);
 void HttpClientDeinit(void);
 BOAT_RESULT HttpGetWithoutXPayment(const BCHAR *url_str, BOAT_OUT BCHAR **response_str_ptr, BOAT_OUT BUINT32 *response_len_ptr);
